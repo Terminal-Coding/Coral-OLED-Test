@@ -15,9 +15,10 @@ class CoralDevice:
         if Device_SPI == 1:
             self.Device = Device_SPI
             self.spi = SPI(spi_dev, spi_mode, spi_max_speed)
+            self.i2c = None  # Do not initialize I2C if we're using SPI
         else:
             self.Device = Device_I2C
-            self.i2c = I2C(i2c_dev)
+            self.i2c = I2C(i2c_dev)  # Initialize I2C
             self.address = i2c_address
 
         self.RST_PIN = GPIO(rst_chip, rst_line, "out")
@@ -34,11 +35,13 @@ class CoralDevice:
         return pin.read()
 
     def spi_writebyte(self, data):
-        self.spi.transfer(data)
+        if self.Device == Device_SPI:
+            self.spi.transfer(data)
 
     def i2c_writebyte(self, reg, value):
-        messages = [I2C.Message([reg, value])]
-        self.i2c.transfer(self.address, messages)
+        if self.Device == Device_I2C:  # Check if I2C is used
+            messages = [I2C.Message([reg, value])]
+            self.i2c.transfer(self.address, messages)
 
     def module_init(self):
         self.digital_write(self.RST_PIN, False)
@@ -51,7 +54,7 @@ class CoralDevice:
     def module_exit(self):
         if self.Device == Device_SPI:
             self.spi.close()
-        else:
+        elif self.Device == Device_I2C:
             self.i2c.close()
         self.RST_PIN.close()
         self.DC_PIN.close()
@@ -67,12 +70,12 @@ if __name__ == "__main__":
         device.module_init()
 
         # Perform some operations
-
-        # Write a byte via SPI
-        device.spi_writebyte([0xAA])
-
-        # Write a byte via I2C
-        device.i2c_writebyte(0x00, 0xFF)
+        if device.Device == Device_SPI:
+            # Write a byte via SPI
+            device.spi_writebyte([0xAA])
+        elif device.Device == Device_I2C:
+            # Write a byte via I2C
+            device.i2c_writebyte(0x00, 0xFF)
 
     finally:
         # Clean up
